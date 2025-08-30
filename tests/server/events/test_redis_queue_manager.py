@@ -188,14 +188,15 @@ async def test_get_operation(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_tap_operation(monkeypatch):
-    """Test tap operation creates new queue instance."""
+    """Test tap operation creates new queue instance with same redis_client."""
     class FakeRedisEventQueue:
         def __init__(self, task_id, redis_client, stream_prefix=None):
             self.task_id = task_id
             self.redis_client = redis_client
 
         def tap(self):
-            return FakeRedisEventQueue(self.task_id, None)  # Tap should have None redis_client
+            # Return a new queue with the same redis_client (matching actual behavior)
+            return FakeRedisEventQueue(self.task_id, self.redis_client)
 
     # Monkeypatch
     import types, sys
@@ -215,4 +216,4 @@ async def test_tap_operation(monkeypatch):
     tapped_queue = await manager.tap('task1')
     
     assert tapped_queue.task_id == 'task1'
-    assert tapped_queue.redis_client is None  # Tap should start with None redis_client
+    assert tapped_queue.redis_client == 'fake_redis'  # Tap should have the same redis_client

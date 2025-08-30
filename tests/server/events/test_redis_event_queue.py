@@ -11,12 +11,21 @@ class FakeRedis:
     def __init__(self):
         # stream_key -> list of (id_str, fields_dict)
         self.streams: dict[str, list[tuple[str, dict]]] = {}
+        # stream_key -> next_id
+        self.next_ids: dict[str, int] = {}
 
-    async def xadd(self, stream_key: str, fields: dict, maxlen: int | None = None):
+    async def xadd(self, stream_key: str, fields: dict, maxlen: int | None = None, **kwargs):
         lst = self.streams.setdefault(stream_key, [])
-        idx = len(lst) + 1
-        entry_id = f"{idx}-0"
+        next_id = self.next_ids.get(stream_key, 1)
+        entry_id = f"{next_id}-0"
         lst.append((entry_id, fields.copy()))
+        self.next_ids[stream_key] = next_id + 1
+        
+        # Implement maxlen by trimming the list if needed
+        if maxlen is not None and len(lst) > maxlen:
+            # Keep only the last maxlen entries
+            self.streams[stream_key] = lst[-maxlen:]
+        
         # return id similar to real redis
         return entry_id
 
@@ -28,7 +37,10 @@ class FakeRedis:
             # determine numeric last id
             if last_id == '$':
                 # interpret as current max id so return only entries added after this call
-                last_num = len(lst)
+                if lst:
+                    last_num = max(int(eid.split('-')[0]) for eid, _ in lst)
+                else:
+                    last_num = 0
             else:
                 try:
                     last_num = int(str(last_id).split('-')[0])
@@ -253,15 +265,24 @@ async def test_maxlen_parameter():
     for i in range(5):
         await q.enqueue_event(MessageEvent({'event': i}))
     
+    # Check what's actually in the stream
+    stream_key = 'a2a:test:task12'
+    print(f"Stream contents: {redis.streams.get(stream_key, [])}")
+    
     # Should only be able to dequeue the last 2 events (due to maxlen=2)
-    # Note: This depends on how FakeRedis implements maxlen
     events_dequeued = []
     try:
         while True:
             event = await q.dequeue_event(no_wait=True)
             events_dequeued.append(event)
+            print(f"Dequeued event: {event}")
     except asyncio.QueueEmpty:
         pass
     
-    # At minimum, we should have dequeued some events
-    assert len(events_dequeued) > 0
+    print(f"Total events dequeued: {len(events_dequeued)}")
+    
+    # Should have exactly 2 events (the last 2 added due to maxlen=2)
+    assert len(events_dequeued) == 2
+    # Verify they are the last 2 events (events 3 and 4)
+    assert events_dequeued[0]['event'] == 3
+    assert events_dequeued[1]['event'] == 4

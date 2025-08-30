@@ -77,8 +77,6 @@ class RedisStreamInjector:
         self,
         event_type: str,
         data: dict[str, Any],
-        context_id: str,
-        task_id: str,
     ) -> dict[str, str]:
         """Serialize an event for Redis stream storage to match RedisEventQueue format."""
         # The RedisEventQueue expects events with 'type' and 'payload' fields
@@ -110,9 +108,9 @@ class RedisStreamInjector:
         if isinstance(message, dict):
             data = message
         else:
-            data = json.loads(message.model_dump_json())
+            data = message.model_dump()
 
-        event_data = self._serialize_event('Message', data, context_id, task_id)
+        event_data = self._serialize_event('Message', data)
         return await self._append_to_stream(task_id, event_data)
 
     async def update_status(
@@ -133,9 +131,7 @@ class RedisStreamInjector:
         if isinstance(status, TaskStatusUpdateEvent):
             event_data = self._serialize_event(
                 'TaskStatusUpdateEvent',
-                json.loads(status.model_dump_json()),
-                context_id,
-                task_id,
+                status.model_dump(),
             )
             return await self._append_to_stream(task_id, event_data)
 
@@ -181,9 +177,7 @@ class RedisStreamInjector:
 
         event_data = self._serialize_event(
             'TaskStatusUpdateEvent',
-            json.loads(event.model_dump_json()),
-            context_id,
-            task_id,
+            event.model_dump(),
         )
         return await self._append_to_stream(task_id, event_data)
 
@@ -216,8 +210,6 @@ class RedisStreamInjector:
         event_data = {
             'type': event_type,
             'payload': payload,
-            'timestamp': datetime.now(timezone.utc).isoformat(),
-            'task_id': task_id,
         }
         return await self._append_to_stream(task_id, event_data)
 

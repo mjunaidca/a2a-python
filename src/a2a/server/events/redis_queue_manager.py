@@ -13,15 +13,7 @@ logger = logging.getLogger(__name__)
 # Import RedisEventQueue at module level to avoid repeated imports
 try:
     from a2a.server.events.redis_event_queue import RedisEventQueue
-    logger.info('Successfully imported RedisEventQueue: %s', RedisEventQueue)
-    if RedisEventQueue is None:
-        logger.error('RedisEventQueue is None after successful import!')
-        raise RuntimeError('RedisEventQueue is None after import')
-except Exception as e:
-    logger.error('Failed to import RedisEventQueue: %s', e)
-    logger.error('Exception type: %s', type(e).__name__)
-    import traceback
-    logger.error('Traceback: %s', traceback.format_exc())
+except ImportError:
     RedisEventQueue = None  # type: ignore
 
 
@@ -91,6 +83,18 @@ class RedisQueueManager(QueueManager):
                 'RedisEventQueue is not available. Cannot close stream. '
                 'Please check Redis configuration.'
             )
+
+        # Check if stream already has a CLOSE entry
+        stream_key = f'{self._stream_prefix}:{task_id}'
+        try:
+            # Get the last entry to check if it's already closed
+            result = await self._redis.xrevrange(stream_key, '+', '-', count=1)
+            if result and result[0][1].get('type') == 'CLOSE':
+                # Stream is already closed, no need to add another CLOSE entry
+                return
+        except Exception as exc:
+            # If we can't check (e.g., stream doesn't exist), proceed with closing
+            logger.debug('Could not check if stream is already closed: %s', exc)
 
         # Create a temporary queue instance just to close the stream
         queue = RedisEventQueue(

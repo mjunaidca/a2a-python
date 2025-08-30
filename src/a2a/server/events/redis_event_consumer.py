@@ -51,4 +51,6 @@ class RedisEventConsumer:
                 if self._queue.is_closed():
                     break
             except asyncio.QueueEmpty:
+                if self._queue.is_closed():
+                    break
                 continue
