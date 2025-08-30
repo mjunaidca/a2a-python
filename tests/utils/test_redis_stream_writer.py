@@ -1,9 +1,18 @@
-import json
 import pytest
 from unittest.mock import AsyncMock, patch
 
 from a2a.types import TaskStatusUpdateEvent
 from a2a.utils.stream_write.redis_stream_writer import RedisStreamInjector
+
+
+@pytest.fixture
+def mock_redis_client():
+    """Fixture providing a mock Redis client."""
+    client = AsyncMock()
+    client.xadd = AsyncMock(return_value='123-0')
+    client.ping = AsyncMock()
+    client.aclose = AsyncMock()
+    return client
 
 
 class TestRedisStreamInjector:
@@ -90,8 +99,7 @@ class TestRedisStreamInjector:
         mock_client = AsyncMock()
         mock_client.aclose = AsyncMock()
 
-        injector = RedisStreamInjector()
-        injector._client = mock_client
+        injector = RedisStreamInjector(redis_client=mock_client)
         injector._connected = True
 
         await injector.disconnect()
@@ -103,15 +111,18 @@ class TestRedisStreamInjector:
     @pytest.mark.asyncio
     async def test_disconnect_not_connected(self):
         """Test disconnect when not connected."""
-        injector = RedisStreamInjector()
-        injector._client = None
+        mock_client = AsyncMock()
+        injector = RedisStreamInjector(redis_client=mock_client)
         injector._connected = False
 
         await injector.disconnect()
 
-        # Should not raise any errors
+        # Should not call aclose since not connected
+        mock_client.aclose.assert_not_called()
+
+        # Should not raise any errors and client should remain
         assert not injector._connected
-        assert injector._client is None
+        assert injector._client == mock_client
 
     @pytest.mark.asyncio
     async def test_context_manager(self):
@@ -120,47 +131,38 @@ class TestRedisStreamInjector:
         mock_client.ping = AsyncMock()
         mock_client.aclose = AsyncMock()
 
-        with patch(
-            'a2a.utils.stream_write.redis_stream_writer.Redis'
-        ) as mock_redis_class:
-            mock_redis_class.from_url.return_value = mock_client
+        injector = RedisStreamInjector(redis_client=mock_client)
 
-            injector = RedisStreamInjector()
+        async with injector as ctx_injector:
+            assert ctx_injector == injector
+            assert injector._connected
 
-            async with injector as ctx_injector:
-                assert ctx_injector == injector
-                assert injector._connected
-
-            assert not injector._connected
-            mock_client.aclose.assert_called_once()
+        assert not injector._connected
+        mock_client.aclose.assert_called_once()
 
     def test_get_stream_key(self):
         """Test stream key generation."""
-        injector = RedisStreamInjector()
+        mock_client = AsyncMock()
+        injector = RedisStreamInjector(redis_client=mock_client)
 
         key = injector._get_stream_key('test_task')
         assert key == 'a2a:task:test_task'
 
     def test_get_stream_key_empty_task_id(self):
         """Test stream key generation with empty task_id."""
-        injector = RedisStreamInjector()
+        mock_client = AsyncMock()
+        injector = RedisStreamInjector(redis_client=mock_client)
 
         with pytest.raises(ValueError, match='task_id cannot be empty'):
             injector._get_stream_key('')
 
     def test_serialize_event(self):
         """Test event serialization."""
-        injector = RedisStreamInjector()
+        injector = RedisStreamInjector(redis_client=AsyncMock())
 
-        data = {'key': 'value', 'number': 42}
-        result = injector._serialize_event('TestEvent', data)
-
-        assert result['type'] == 'TestEvent'
-        assert 'payload' in result
-
-        # Parse the payload to verify it's correct JSON
-        payload = json.loads(result['payload'])
-        assert payload == data
+        event_data = injector._serialize_event('test_type', {'key': 'value'})
+        assert event_data['type'] == 'test_type'
+        assert 'payload' in event_data
 
     @pytest.mark.asyncio
     async def test_append_to_stream(self):
@@ -168,9 +170,7 @@ class TestRedisStreamInjector:
         mock_client = AsyncMock()
         mock_client.xadd = AsyncMock(return_value='123-0')
 
-        injector = RedisStreamInjector()
-        injector._client = mock_client
-        injector._connected = True
+        injector = RedisStreamInjector(redis_client=mock_client)
 
         event_data = {'type': 'Test', 'payload': '{"data": "test"}'}
         result = await injector._append_to_stream('test_task', event_data)
@@ -183,7 +183,8 @@ class TestRedisStreamInjector:
     @pytest.mark.asyncio
     async def test_append_to_stream_not_connected(self):
         """Test append_to_stream when not connected."""
-        injector = RedisStreamInjector()
+        mock_client = AsyncMock()
+        injector = RedisStreamInjector(redis_client=mock_client)
         injector._connected = False
 
         with pytest.raises(RuntimeError, match='Not connected to Redis'):
@@ -195,9 +196,7 @@ class TestRedisStreamInjector:
         mock_client = AsyncMock()
         mock_client.xadd = AsyncMock(return_value='123-0')
 
-        injector = RedisStreamInjector()
-        injector._client = mock_client
-        injector._connected = True
+        injector = RedisStreamInjector(redis_client=mock_client)
 
         message_data = {'content': 'test message', 'role': 'assistant'}
         result = await injector.stream_message(

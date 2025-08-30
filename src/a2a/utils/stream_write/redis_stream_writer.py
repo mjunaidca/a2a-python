@@ -26,16 +26,21 @@ logger = logging.getLogger(__name__)
 class RedisStreamInjector:
     """Professional stream injector for A2A framework."""
 
-    def __init__(self, redis_url: str = 'redis://localhost:6379/0'):
+    def __init__(
+        self,
+        redis_url: str = 'redis://localhost:6379/0',
+        redis_client: Any | None = None,
+    ):
         """Initialize the stream injector."""
-        if Redis is None:
+        # Allow passing a custom redis client (e.g. a fake in tests).
+        if Redis is None and redis_client is None:
             raise ImportError(
                 'redis package is required. Install with: pip install redis'
             )
 
         self.redis_url = redis_url
-        self._client = None
-        self._connected = False
+        self._client = redis_client
+        self._connected = redis_client is not None
 
     async def connect(self) -> None:
         """Establish Redis connection."""
@@ -43,8 +48,13 @@ class RedisStreamInjector:
             return
 
         try:
-            self._client = Redis.from_url(self.redis_url)
-            await self._client.ping()
+            if self._client is None:
+                if Redis is None:
+                    raise ImportError(
+                        'redis package is required. Install with: pip install redis'
+                    )
+                self._client = Redis.from_url(self.redis_url)
+                await self._client.ping()
             self._connected = True
             logger.info('Connected to Redis')
         except Exception:
@@ -102,7 +112,7 @@ class RedisStreamInjector:
             raise RuntimeError('Not connected to Redis. Call connect() first.')
 
         stream_key = self._get_stream_key(task_id)
-        return await self._client.xadd(stream_key, event_data)
+        return await self._client.xadd(stream_key, event_data)  # type: ignore
 
     async def stream_message(
         self, context_id: str, task_id: str, message: dict[str, Any] | Message

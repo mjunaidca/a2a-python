@@ -36,7 +36,7 @@ class RedisQueueManager(QueueManager):
     async def add(self, task_id: str, queue: EventQueue) -> None:
         """Add is not supported in distributed Redis setup.
 
-        In a distributed environment, we can't reliably add pre-existing queue
+        In a distributed environment, we can't reliably add preexisting queue
         instances. Use create_or_tap() instead to create Redis-backed queues.
         """
         raise NotImplementedError(
