@@ -106,7 +106,10 @@ class RedisQueueManager(QueueManager):
             redis_client=self._redis,
             stream_prefix=self._stream_prefix,
         )
-        await queue.close()
+        try:
+            await queue.close()
+        except Exception as exc:  # noqa: BLE001
+            logger.debug('Failed to close queue: %s', exc)
 
     async def create_or_tap(self, task_id: str) -> EventQueue:
         """Create a new RedisEventQueue or return a tap if stream exists.

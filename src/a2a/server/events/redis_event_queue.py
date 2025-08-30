@@ -111,11 +111,10 @@ class RedisEventQueue(EventQueue):
 
         Returns a parsed pydantic model matching the event type.
         """
-        if self._is_closed:
-            raise asyncio.QueueEmpty('Queue is closed')
+        # Removed early check for _is_closed to allow dequeuing existing events after close()
 
         block = 0 if no_wait else self._read_block_ms
-        # Keep reading until we find a parseable payload or a CLOSE tombstone.
+        # Keep reading until we find payload or a CLOSE tombstone.
         while True:
             try:
                 result = await self._redis.xread(
@@ -162,7 +161,7 @@ class RedisEventQueue(EventQueue):
             # Handle tombstone/close message
             if evt_type == 'CLOSE':
                 self._is_closed = True
-                raise asyncio.QueueEmpty('Queue closed')
+                raise asyncio.QueueEmpty('Queue is closed')
 
             raw_payload = norm.get('payload')
             if raw_payload is None:
@@ -237,8 +236,11 @@ class RedisEventQueue(EventQueue):
         try:
             await self._redis.xadd(self._stream_key, {'type': 'CLOSE'})
             self._close_called = True
-        except RedisError:
+            self._is_closed = True  # Mark as closed immediately
+        except Exception:  # Catch all exceptions, not just RedisError
             logger.exception('Failed to write close marker to redis')
+            # Still mark as closed even if Redis operation fails
+            self._is_closed = True
 
     def is_closed(self) -> bool:
         """Return True if this queue has been closed (close() called)."""
@@ -248,7 +250,7 @@ class RedisEventQueue(EventQueue):
         """Attempt to remove the underlying redis stream (best-effort)."""
         try:
             await self._redis.delete(self._stream_key)
-        except RedisError:
+        except Exception:  # Catch all exceptions, not just RedisError
             logger.exception(
                 'Failed to delete redis stream during clear_events'
             )
