@@ -8,6 +8,7 @@ import json
 import logging
 
 from datetime import datetime, timezone
+from types import TracebackType
 from typing import Any
 
 
@@ -58,11 +59,18 @@ class RedisStreamInjector:
             self._connected = False
             logger.info('Disconnected from Redis')
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> 'RedisStreamInjector':
+        """Enter the async context manager."""
         await self.connect()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        """Exit the async context manager."""
         await self.disconnect()
 
     def _get_stream_key(self, task_id: str) -> str:
@@ -70,7 +78,7 @@ class RedisStreamInjector:
         if not task_id:
             raise ValueError('task_id cannot be empty')
         stream_key = f'a2a:task:{task_id}'
-        logger.debug(f'Generated stream key: {stream_key}')
+        logger.debug('Generated stream key: %s', stream_key)
         return stream_key
 
     def _serialize_event(
@@ -105,10 +113,7 @@ class RedisStreamInjector:
         if not context_id:
             raise ValueError('context_id cannot be empty')
 
-        if isinstance(message, dict):
-            data = message
-        else:
-            data = message.model_dump()
+        data = message if isinstance(message, dict) else message.model_dump()
 
         event_data = self._serialize_event('Message', data)
         return await self._append_to_stream(task_id, event_data)
@@ -227,7 +232,7 @@ class RedisStreamInjector:
             if result:
                 entry_id, fields = result[0]
                 return {'id': entry_id, **fields}
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(
                 'Failed to get latest event',
                 extra={'task_id': task_id, 'error': str(e)},
@@ -247,7 +252,7 @@ class RedisStreamInjector:
         try:
             result = await self._client.xrange(stream_key, start_id, '+')
             return [{'id': entry_id, **fields} for entry_id, fields in result]
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(
                 'Failed to get events',
                 extra={'task_id': task_id, 'error': str(e)},

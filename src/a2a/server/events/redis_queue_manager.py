@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+
 from typing import TYPE_CHECKING, Any
 
 from a2a.server.events.queue_manager import QueueManager
+
 
 if TYPE_CHECKING:
     from a2a.server.events.event_queue import EventQueue
@@ -25,7 +27,9 @@ class RedisQueueManager(QueueManager):
     All coordination happens through Redis streams.
     """
 
-    def __init__(self, redis_client: Any, stream_prefix: str = 'a2a:task') -> None:
+    def __init__(
+        self, redis_client: Any, stream_prefix: str = 'a2a:task'
+    ) -> None:
         self._redis = redis_client
         self._stream_prefix = stream_prefix
 
@@ -92,7 +96,7 @@ class RedisQueueManager(QueueManager):
             if result and result[0][1].get('type') == 'CLOSE':
                 # Stream is already closed, no need to add another CLOSE entry
                 return
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             # If we can't check (e.g., stream doesn't exist), proceed with closing
             logger.debug('Could not check if stream is already closed: %s', exc)
 
@@ -114,7 +118,7 @@ class RedisQueueManager(QueueManager):
         logger.info('create_or_tap called with task_id: %s', task_id)
         logger.info('RedisEventQueue value: %s', RedisEventQueue)
         logger.info('RedisEventQueue type: %s', type(RedisEventQueue))
-        
+
         if RedisEventQueue is None:
             logger.error('RedisEventQueue is None - import failed!')
             raise RuntimeError(

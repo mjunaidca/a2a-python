@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from typing import Protocol, TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
+
+
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
@@ -24,6 +26,7 @@ class QueueLike(Protocol):
         """Return True if the underlying queue has been closed."""
         ...
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,6 +41,7 @@ class RedisEventConsumer:
     def __init__(self, queue: QueueLike) -> None:
         """Wrap a queue-like object that exposes dequeue_event and is_closed."""
         self._queue = queue
+
     async def consume_one(self) -> object:
         """Consume a single event without waiting; raises asyncio.QueueEmpty if none."""
         return await self._queue.dequeue_event(no_wait=True)

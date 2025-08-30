@@ -94,11 +94,13 @@ class DefaultRequestHandler(RequestHandler):
         """
         self.agent_executor = agent_executor
         self.task_store = task_store
-        
+
         # Handle queue_manager with deprecation warning for backward compatibility
         if queue_manager is None:
             # Allow disabling fallback via environment variable for strict production deployments
-            disable_fallback = os.getenv('A2A_DISABLE_QUEUE_MANAGER_FALLBACK', '').lower() in ('true', '1', 'yes')
+            disable_fallback = os.getenv(
+                'A2A_DISABLE_QUEUE_MANAGER_FALLBACK', ''
+            ).lower() in ('true', '1', 'yes')
 
             if disable_fallback:
                 raise ValueError(
@@ -110,12 +112,12 @@ class DefaultRequestHandler(RequestHandler):
                 'Using default InMemoryQueueManager. This will be removed in a future version. '
                 'Please explicitly pass a QueueManager instance to ensure proper production deployment.',
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
             self._queue_manager = InMemoryQueueManager()
         else:
             self._queue_manager = queue_manager
-            
+
         self._push_config_store = push_config_store
         self._push_sender = push_sender
         self._request_context_builder = (

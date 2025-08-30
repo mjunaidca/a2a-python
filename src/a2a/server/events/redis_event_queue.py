@@ -5,27 +5,35 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+
 from typing import Any
+
 
 try:
     import redis.asyncio as aioredis  # type: ignore
+
     from redis.exceptions import RedisError  # type: ignore
 except ImportError:  # pragma: no cover - optional dependency
     aioredis = None  # type: ignore
     RedisError = Exception  # type: ignore
 
-from a2a.server.events.event_queue import EventQueue
 from typing import TYPE_CHECKING
+
+from a2a.server.events.event_queue import EventQueue
+
+
 if TYPE_CHECKING:
     from a2a.server.events.event_queue import Event
 from pydantic import ValidationError
+
 from a2a.types import (
     Message,
     Task,
-    TaskStatusUpdateEvent,
     TaskArtifactUpdateEvent,
+    TaskStatusUpdateEvent,
 )
 from a2a.utils.telemetry import SpanKind, trace_class
+
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +106,7 @@ class RedisEventQueue(EventQueue):
         except RedisError:
             logger.exception('Failed to XADD event to redis stream')
 
-    async def dequeue_event(self, no_wait: bool = False) -> Event | Any:
+    async def dequeue_event(self, no_wait: bool = False) -> Event | Any:  # noqa: PLR0912
         """Read one event from the Redis stream respecting no_wait semantics.
 
         Returns a parsed pydantic model matching the event type.
@@ -128,18 +136,25 @@ class RedisEventQueue(EventQueue):
             norm: dict[str, object] = {}
             try:
                 for k, v in fields.items():
-                    key = k.decode('utf-8') if isinstance(k, (bytes, bytearray)) else k
-                    if isinstance(v, (bytes, bytearray)):
+                    key = (
+                        k.decode('utf-8')
+                        if isinstance(k, bytes | bytearray)
+                        else k
+                    )
+                    if isinstance(v, bytes | bytearray):
                         try:
                             val: object = v.decode('utf-8')
-                        except Exception:
+                        except UnicodeDecodeError:
                             val = v
                     else:
                         val = v
                     norm[str(key)] = val
-            except Exception:
+            except Exception:  # noqa: BLE001
                 # Defensive: if normalization fails, skip this entry and continue
-                logger.debug('RedisEventQueue.dequeue_event: failed to normalize entry fields, skipping %s', entry_id)
+                logger.debug(
+                    'RedisEventQueue.dequeue_event: failed to normalize entry fields, skipping %s',
+                    entry_id,
+                )
                 continue
 
             evt_type = norm.get('type')
@@ -153,7 +168,10 @@ class RedisEventQueue(EventQueue):
             if raw_payload is None:
                 # Missing payload — likely due to key mismatch or malformed entry.
                 # Skip and continue to next entry instead of returning None to callers.
-                logger.debug('RedisEventQueue.dequeue_event: skipping entry %s with missing payload', entry_id)
+                logger.debug(
+                    'RedisEventQueue.dequeue_event: skipping entry %s with missing payload',
+                    entry_id,
+                )
                 # continue loop to read next entry
                 continue
 
@@ -171,12 +189,17 @@ class RedisEventQueue(EventQueue):
                 try:
                     return model.parse_obj(data)
                 except ValidationError as exc:
-                    logger.debug('Failed to parse event payload into model, returning raw data: %s', exc)
+                    logger.debug(
+                        'Failed to parse event payload into model, returning raw data: %s',
+                        exc,
+                    )
                     # Return raw data for flexibility when parsing fails
                     return data
 
             # Unknown type — return raw data for flexibility
-            logger.debug('Unknown event type: %s, returning raw payload', evt_type)
+            logger.debug(
+                'Unknown event type: %s, returning raw payload', evt_type
+            )
             return data
 
     def task_done(self) -> None:  # streams do not require task_done semantics
@@ -226,4 +249,6 @@ class RedisEventQueue(EventQueue):
         try:
             await self._redis.delete(self._stream_key)
         except RedisError:
-            logger.exception('Failed to delete redis stream during clear_events')
+            logger.exception(
+                'Failed to delete redis stream during clear_events'
+            )

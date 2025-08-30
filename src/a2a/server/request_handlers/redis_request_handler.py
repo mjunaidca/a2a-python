@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from a2a.server.request_handlers.default_request_handler import DefaultRequestHandler
-from  a2a.server.events.redis_queue_manager import RedisQueueManager
+from a2a.server.events.redis_queue_manager import RedisQueueManager
+from a2a.server.request_handlers.default_request_handler import (
+    DefaultRequestHandler,
+)
 
 
 def create_redis_request_handler(
@@ -19,5 +21,12 @@ def create_redis_request_handler(
     provided `redis_client` and passes it into `DefaultRequestHandler` so the
     rest of the application can remain unchanged.
     """
-    queue_manager = RedisQueueManager(redis_client=redis_client, stream_prefix=stream_prefix)
-    return DefaultRequestHandler(agent_executor=agent_executor, task_store=task_store, queue_manager=queue_manager, **kwargs)
+    queue_manager = RedisQueueManager(
+        redis_client=redis_client, stream_prefix=stream_prefix
+    )
+    return DefaultRequestHandler(
+        agent_executor=agent_executor,
+        task_store=task_store,
+        queue_manager=queue_manager,
+        **kwargs,
+    )
