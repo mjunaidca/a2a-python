@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from a2a.types import TaskStatusUpdateEvent
 from a2a.utils.stream_write.redis_stream_writer import RedisStreamInjector
@@ -226,7 +227,7 @@ class TestRedisStreamInjector:
         injector._connected = True
 
         # Create a proper Message object with required fields
-        from a2a.types import Message, TextPart, Role
+        from a2a.types import Message, Role, TextPart
 
         message = Message(
             message_id='msg-123',

@@ -1,5 +1,6 @@
 import asyncio
 import json
+
 import pytest
 
 from a2a.server.events.redis_event_queue import RedisEventQueue

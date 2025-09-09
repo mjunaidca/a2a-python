@@ -5,15 +5,15 @@ def test_create_redis_request_handler_monkeypatched(monkeypatch):
 
     monkeypatch.setenv('A2A_FAKE', '1')
 
-    from a2a.server.request_handlers.redis_request_handler import (
-        create_redis_request_handler,
-    )
+    # Monkeypatch RedisQueueManager to our fake to avoid real redis import
+    import a2a.server.events.redis_queue_manager as rqm
+
     from a2a.server.request_handlers.default_request_handler import (
         DefaultRequestHandler,
     )
-
-    # Monkeypatch RedisQueueManager to our fake to avoid real redis import
-    import a2a.server.events.redis_queue_manager as rqm
+    from a2a.server.request_handlers.redis_request_handler import (
+        create_redis_request_handler,
+    )
 
     rqm.RedisQueueManager = FakeRedisQueueManager
 

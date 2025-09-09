@@ -1,4 +1,5 @@
 import asyncio
+
 import pytest
 
 from a2a.server.events.redis_event_consumer import RedisEventConsumer

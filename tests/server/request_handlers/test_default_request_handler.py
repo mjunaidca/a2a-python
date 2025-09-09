@@ -2459,6 +2459,7 @@ async def test_on_message_send_stream_task_id_provided_but_task_not_found():
 def test_init_with_default_queue_manager_issues_deprecation_warning():
     """Test that initializing with default queue_manager issues deprecation warning."""
     import warnings
+
     from unittest.mock import MagicMock
 
     with warnings.catch_warnings(record=True) as w:
@@ -2477,6 +2478,7 @@ def test_init_with_default_queue_manager_issues_deprecation_warning():
 def test_init_with_explicit_queue_manager_no_warning():
     """Test that initializing with explicit queue_manager does not issue warning."""
     import warnings
+
     from unittest.mock import MagicMock
 
     with warnings.catch_warnings(record=True) as w:
@@ -2501,6 +2503,7 @@ def test_init_with_explicit_queue_manager_no_warning():
 async def test_init_with_disabled_fallback_raises_error():
     """Test that disabling fallback raises ValueError when queue_manager is None."""
     import os
+
     from unittest.mock import MagicMock
 
     # Set environment variable to disable fallback
@@ -2525,6 +2528,7 @@ async def test_init_with_disabled_fallback_false_allows_default():
     """Test that setting A2A_DISABLE_QUEUE_MANAGER_FALLBACK=false allows default behavior."""
     import os
     import warnings
+
     from unittest.mock import MagicMock
 
     # Set environment variable to explicitly allow fallback
@@ -2553,6 +2557,7 @@ async def test_init_with_disabled_fallback_false_allows_default():
 def test_environment_variable_parsing():
     """Test that environment variable accepts various true/false values."""
     import os
+
     from unittest.mock import MagicMock
 
     test_cases = [

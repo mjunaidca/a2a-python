@@ -29,8 +29,10 @@ datamodel
 drivername
 DSNs
 dunders
+eid
 euo
 EUR
+evt
 excinfo
 fernet
 fetchrow
@@ -82,8 +84,6 @@ testuuid
 Tful
 typeerror
 vulnz
-eid
-evt
-XREAD
 xread
+XREAD
 xrevrange
