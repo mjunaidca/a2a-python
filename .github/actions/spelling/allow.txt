@@ -26,6 +26,7 @@ coc
 codegen
 coro
 datamodel
+deepwiki
 drivername
 DSNs
 dunders
@@ -82,6 +83,7 @@ tagwords
 taskupdate
 testuuid
 Tful
+tiangolo
 typeerror
 vulnz
 xread
